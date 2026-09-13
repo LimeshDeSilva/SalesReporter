@@ -6,19 +6,31 @@ import output.OutputStrategy;
 import report.SalesReportGenerator;
 import service.SalesReportService;
 
-import java.io.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.List;
-import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        String csvFilePath = "C:\\Users\\lap.lk\\Desktop\\SalesReporter\\sales.csv";
-        String outputMethod;
-        String outputFilePath = "report.txt";
 
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter the Output Method [file/console]");
-        outputMethod = scanner.nextLine();
+        if(args.length < 2) {
+            System.err.println("Error: Missing required command-line arguments.");
+            printUsage();
+            System.exit(1);
+        }
+        String csvFilePath = args[0];
+        String outputMethod = args[1].toLowerCase();
+        String outputFilePath = args.length > 2 ? args[2] : null;
+
+        if ("file".equalsIgnoreCase(outputMethod) && outputFilePath == null) {
+            System.err.println("Error: Output file path is required when output-method is 'file'.");
+            printUsage();
+            System.exit(1);
+        } else if (!"console".equalsIgnoreCase(outputMethod) && !"file".equalsIgnoreCase(outputMethod)) {
+            System.err.println("Error: Invalid output method '" + args[1] + "'. Must be 'console' or 'file'.");
+            printUsage();
+            System.exit(1);
+        }
 
         try {
             CsvSalesReader reader = new CsvSalesReader();
@@ -32,23 +44,32 @@ public class Main {
             String report = generator.generate(sales);
             OutputStrategy output;
 
-            if ("console".equals(outputMethod)) {
+            if ("console".equalsIgnoreCase(outputMethod)) {
                 output = new ConsoleOutput();
-            } else if ("file".equals(outputMethod)) {
-                output = new FileOutput(outputFilePath);
             } else {
-                System.err.println("Error: Invalid output method. Use 'console' or 'file'.");
-                return;
+                output = new FileOutput(outputFilePath);
             }
 
             output.writeReport(report);
-            if ("file".equals(outputMethod)) {
+            if ("file".equalsIgnoreCase(outputMethod)) {
                 System.out.println("Report successfully saved to " + outputFilePath);
             }
+        } catch (FileNotFoundException e) {
+            System.err.println("Error: CSV file not found at path: " + csvFilePath);
         } catch (IOException e) {
-            System.err.println("Error processing file: " + e.getMessage());
+            System.err.println("Error reading or writing file: " + e.getMessage());
         } catch (NumberFormatException e) {
-            System.err.println("Error: Invalid numeric value in CSV file.");
+            System.err.println("Error: CSV contains invalid numeric format. " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("An unexpected error occurred: " + e.getMessage());
         }
+    }
+
+    private static void printUsage() {
+        System.out.println("\nUsage:");
+        System.out.println("  java SalesReporter <csv-file-path> <output-method> [output-file-path]");
+        System.out.println("Examples:");
+        System.out.println("  java SalesReporter sales.csv console");
+        System.out.println("  java SalesReporter sales.csv file output_report.txt");
     }
 }
